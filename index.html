@@ -124,7 +124,13 @@ button.primary:hover { background: #eea6dc; }
 .panel .ghost { justify-self: center; background: transparent; border-color: transparent; color: var(--ink-dim); }
 .panel .ghost:hover { color: var(--ink); }
 
+/* Während des Spiels: Titelkarte und gesperrte Knöpfe ausblenden, damit mehr Straße zu sehen ist */
+body.playing .card, body.playing #light, body.playing #rebloom, body.playing .count { display: none; }
+body.playing .top { justify-content: flex-end; }
+
 @media (max-width: 520px) {
+  .card { padding: 11px 13px 12px; gap: 4px; }
+  .card p { font-size: 12.5px; }
   .stat { min-width: 0; padding: 5px 9px; }
   .stat .v { font-size: 21px; }
   .stat.combo { min-width: 96px; }
@@ -563,7 +569,7 @@ button.primary:hover { background: #eea6dc; }
     const oldW = W, oldH = H;
     W = innerWidth; H = innerHeight; DPR = Math.min(2, devicePixelRatio || 1);
     cv.width = W * DPR; cv.height = H * DPR;
-    U = Math.max(30, Math.min(66, Math.min(W, H) / 11));
+    U = Math.max(36, Math.min(66, Math.min(W, H) / (W < 600 ? 9 : 11)));
     buildBackground();
     if (!walkers.length) populate();
     else walkers.forEach(w => { w.x *= W / oldW; w.y *= H / oldH; });
@@ -574,17 +580,15 @@ button.primary:hover { background: #eea6dc; }
     document.getElementById('count').textContent = `${walkers.length} Passanten · ${kinds} Blumenarten`;
   }
 
+  let coarse = matchMedia('(pointer: coarse)').matches;
   function findWalker(px, py) {
+    // Finger brauchen eine größere Trefferfläche als die Maus (mind. ~24 px Radius)
     let best = null, bd = Infinity;
     for (const w of walkers) {
       const h = headPos(w);
-      const d = Math.hypot(px - h.x, py - h.y);
-      if (d < h.r * 1.15 && h.y < bd) { best = w; bd = h.y; }
-    }
-    // vorderste Figur (größtes y) gewinnt
-    if (best) {
-      const hits = walkers.filter(w => { const h = headPos(w); return Math.hypot(px - h.x, py - h.y) < h.r * 1.15; });
-      best = hits.sort((a, b) => b.y - a.y)[0];
+      const reach = coarse ? Math.max(h.r * 1.3, 24) : h.r * 1.15;
+      const d = Math.hypot(px - h.x, py - h.y) / reach;
+      if (d < 1 && d < bd) { best = w; bd = d; }
     }
     return best;
   }
@@ -648,6 +652,7 @@ button.primary:hover { background: #eea6dc; }
   cv.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') pointer.x = pointer.y = -1e4; });
   cv.addEventListener('pointerdown', e => {
     setPointer(e);
+    coarse = e.pointerType === 'touch' || e.pointerType === 'pen' ? true : e.pointerType === 'mouse' ? false : coarse;
     const w = findWalker(pointer.x, pointer.y);
     if (w) {
       const h = headPos(w);
@@ -731,6 +736,7 @@ button.primary:hover { background: #eea6dc; }
     lightBtn.disabled = true; rebloomBtn.disabled = true;
     playBtn.textContent = 'Spiel beenden'; playBtn.classList.remove('primary');
     modal.hidden = true; hud.hidden = false;
+    document.body.classList.add('playing');
     $('timeStat').classList.remove('urgent');
     renderHud();
     // genug Passanten auf der Straße
@@ -743,6 +749,7 @@ button.primary:hover { background: #eea6dc; }
     lightBtn.disabled = false; rebloomBtn.disabled = false;
     playBtn.textContent = 'Blütenjagd starten'; playBtn.classList.add('primary');
     hud.hidden = true;
+    document.body.classList.remove('playing');
     if (!finished) return;
     const prev = readBest(game.min);
     const isNew = game.score > prev;
