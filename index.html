@@ -127,6 +127,15 @@ button.primary:hover { background: #eea6dc; }
 .choices button { justify-content: center; padding: 13px 8px; font-size: 14px; }
 .panel .best { font: 400 12.5px/1.4 var(--mono); color: var(--ink-dim); }
 .panel .best.new { color: var(--go); }
+.panel { max-height: 100%; overflow-y: auto; }
+.mhead { display: grid; gap: 8px; }
+.mode { display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+.mode h3 { margin: 0; font-weight: 800; font-size: 19px; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; }
+.mode h3 .best { font-weight: 400; font-size: 11.5px; }
+.mode p { font-size: 13.5px; }
+button.wide { justify-content: center; padding: 13px 8px; font-size: 14px; }
+.hud.quiz .combo { flex: 1; min-width: 0; }
+.hud.quiz .combo .v { font-size: 22px; color: var(--go); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .panel .ghost { justify-self: center; background: transparent; border-color: transparent; color: var(--ink-dim); }
 .panel .ghost:hover { color: var(--ink); }
 
@@ -153,6 +162,8 @@ body.playing .top { justify-content: flex-end; }
   .stat .v { font-size: 21px; }
   .stat.combo { min-width: 96px; }
   .hud { width: 100%; justify-content: space-between; }
+  .hud.quiz .stat:not(.combo) { padding-inline: 7px; }
+  .hud.quiz .combo .v { font-size: 17px; white-space: normal; overflow-wrap: anywhere; }
 }
 
 @media (max-width: 520px) {
@@ -169,7 +180,7 @@ body.playing .top { justify-content: flex-end; }
     <section class="card" id="card">
       <span class="eyebrow">Fußgängerüberweg · von oben</span>
       <h1>Zebrastreifen in <em>Blüte</em></h1>
-      <p>Tippe eine Blüte an, um sie zu tauschen. Tippe auf den Asphalt, damit jemand Neues losgeht. Oder starte die Blütenjagd und sammle Punkte.</p>
+      <p>Tippe eine Blüte an, um sie zu tauschen. Tippe auf den Asphalt, damit jemand Neues losgeht. Unter „Spielen“ warten die Blütenjagd und ein Quiz zu den Blumenarten.</p>
     </section>
     <section class="hud" id="hud" hidden aria-live="polite">
       <div class="stat" id="timeStat"><span class="k">Zeit</span><span class="v" id="time">1:00</span></div>
@@ -179,7 +190,7 @@ body.playing .top { justify-content: flex-end; }
   </div>
 
   <div class="controls" role="toolbar" aria-label="Steuerung">
-    <button id="play" type="button" class="primary">Blütenjagd starten</button>
+    <button id="play" type="button" class="primary">Spielen</button>
     <button id="light" type="button" aria-pressed="false"><span class="lamp"></span><span id="lightLabel">Ampel: Grün</span></button>
     <label class="speed" for="weather">Wetter
       <select id="weather">
@@ -200,16 +211,27 @@ body.playing .top { justify-content: flex-end; }
 
 <div class="modal" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="mTitle">
   <div class="panel">
-    <span class="eyebrow" id="mEyebrow">Blütenjagd</span>
-    <h2 id="mTitle">Wie lange willst du spielen?</h2>
-    <p id="mText">Tippe eine Blüte an. Jede weitere Blüte <strong>derselben Art</strong> bringt einen Punkt mehr als die vorige. Triffst du eine andere Art, beginnt die Serie mit dieser Art neu. Ein Tipp auf den Asphalt beendet die Serie.</p>
-    <div class="scale" id="mScale" aria-hidden="true"><span>Rose +1</span><span>Rose +2</span><span>Rose +3</span><span>Rose +4 …</span></div>
-    <div class="choices">
-      <button type="button" data-sec="30">30 Sek.</button>
-      <button type="button" data-sec="60">60 Sek.</button>
-      <button type="button" data-sec="90">90 Sek.</button>
+    <div class="mhead">
+      <span class="eyebrow" id="mEyebrow">Spielen</span>
+      <h2 id="mTitle">Was möchtest du spielen?</h2>
+      <p id="mText" hidden></p>
+      <p class="best" id="mBest" hidden></p>
     </div>
-    <p class="best" id="mBest"></p>
+    <section class="mode">
+      <h3>Blütenjagd <span class="best" id="jagdBest"></span></h3>
+      <p>Tippe Blüten an. Jede weitere Blüte <strong>derselben Art</strong> bringt einen Punkt mehr als die vorige. Eine andere Art oder der Asphalt beendet die Serie.</p>
+      <div class="scale" aria-hidden="true"><span>Rose +1</span><span>Rose +2</span><span>Rose +3</span><span>Rose +4 …</span></div>
+      <div class="choices">
+        <button type="button" data-sec="30">30 Sek.</button>
+        <button type="button" data-sec="60">60 Sek.</button>
+        <button type="button" data-sec="90">90 Sek.</button>
+      </div>
+    </section>
+    <section class="mode">
+      <h3>Blüten-Quiz <span class="best" id="quizBest"></span></h3>
+      <p>Lerne die neun Arten kennen. Oben steht, welche Blume du finden sollst. Tippst du daneben, siehst du, was du erwischt hast, und die richtigen Blüten leuchten auf.</p>
+      <button type="button" class="primary wide" id="quizStart">Quiz starten · 10 Fragen</button>
+    </section>
     <button type="button" class="ghost" id="mClose">Weiter zuschauen</button>
   </div>
 </div>
@@ -695,7 +717,7 @@ body.playing .top { justify-content: flex-end; }
     return walkers.filter(w => { const h = headPos(w); return h.x > U && h.x < W - U && h.y > U && h.y < H - U * 1.5; });
   }
   function updateBee(dt) {
-    if (!bee) { beeTimer -= dt; if (beeTimer <= 0) spawnBee(); return; }
+    if (!bee) { if (quiz.on) return; beeTimer -= dt; if (beeTimer <= 0) spawnBee(); return; }
     bee.life += dt;
     if (bee.life > bee.max) beeLeave();
     let tx, ty;
@@ -849,8 +871,14 @@ body.playing .top { justify-content: flex-end; }
       w.spin += dt * w.hover * 0.9;
       if (w.bloom < 1) w.bloom = Math.min(1, w.bloom + dt * 2.2);
       const m = 2.4 * U;
-      if (w.y < -m * 0.3) { w.y = H + m * 0.9; w.x = rnd(U * 0.5, W - U * 0.5); }
-      if (w.y > H + m) { w.y = -m * 0.2; w.x = rnd(U * 0.5, W - U * 0.5); }
+      let wrapped = false;
+      if (w.y < -m * 0.3) { w.y = H + m * 0.9; w.x = rnd(U * 0.5, W - U * 0.5); wrapped = true; }
+      if (w.y > H + m) { w.y = -m * 0.2; w.x = rnd(U * 0.5, W - U * 0.5); wrapped = true; }
+      // im Quiz kommt die gesuchte Art öfter neu ins Bild, damit sie nicht ausgeht
+      if (wrapped && quiz.on && Math.random() < 0.35) {
+        const type = FLOWERS.find(f => f.key === quiz.target);
+        w.flower = { type, pal: pick(type.pals), rot: rnd(0, TAU), seed: rnd(0, 100), size: rnd(0.9, 1.15) };
+      }
       if (w.x < -U) w.x = W + U * 0.5; if (w.x > W + U) w.x = -U * 0.5;
       if (w.v > 0.5 && Math.random() < dt * 0.035) {
         const h = headPos(w); burst(h.x, h.y, h.r, w.flower.pal, 1);
@@ -859,7 +887,8 @@ body.playing .top { justify-content: flex-end; }
 
     walkers.sort((a, b) => a.y - b.y).forEach(drawWalker);
 
-    if (hovered) {
+    drawReveal();
+    if (hovered && !quiz.on) { // im Quiz würde das Namensschild die Antwort verraten
       const h = headPos(hovered);
       const label = hovered.flower.type.name;
       ctx.font = '500 12px "DM Mono", ui-monospace, monospace';
@@ -878,6 +907,7 @@ body.playing .top { justify-content: flex-end; }
     drawSky(dt);
     drawFloaters(dt);
     if (game.on) tickGame();
+    if (quiz.on) tickQuiz(dt);
     requestAnimationFrame(frame);
   }
 
@@ -890,6 +920,7 @@ body.playing .top { justify-content: flex-end; }
     coarse = e.pointerType === 'touch' || e.pointerType === 'pen' ? true : e.pointerType === 'mouse' ? false : coarse;
     if (beeAt(pointer.x, pointer.y)) { catchBee(); return; }
     const w = findWalker(pointer.x, pointer.y);
+    if (quiz.on) { if (w) quizTap(w, headPos(w)); return; }
     if (w) {
       const h = headPos(w);
       if (game.on) scoreHit(w, h);
@@ -919,7 +950,7 @@ body.playing .top { justify-content: flex-end; }
   lightBtn.addEventListener('click', toggleLight);
   addEventListener('keydown', e => {
     if (e.key === 'Escape' && !modal.hidden) { closeModal(); return; }
-    if (game.on || !modal.hidden) return;
+    if (game.on || quiz.on || !modal.hidden) return;
     if (e.code === 'Space' && !(e.target instanceof HTMLButtonElement) && !(e.target instanceof HTMLInputElement)) { e.preventDefault(); toggleLight(); }
   });
 
@@ -952,59 +983,185 @@ body.playing .top { justify-content: flex-end; }
   function fmt(s) { s = Math.max(0, Math.ceil(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
   function bump(el) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
 
-  function bestLine() {
+  function readQuizBest() { try { return parseInt(localStorage.getItem('fc-quiz-best') || '0', 10) || 0; } catch { return 0; } }
+  function writeQuizBest(v) { try { localStorage.setItem('fc-quiz-best', String(v)); } catch {} }
+
+  function fillBests() {
     const parts = [30, 60, 90].filter(s => readBest(s)).map(s => `${s} s: ${readBest(s)}`);
-    return parts.length ? 'Deine Bestwerte · ' + parts.join(' · ') : 'Noch keine Bestwerte. Leg los!';
+    $('jagdBest').textContent = parts.length ? 'Bestwerte · ' + parts.join(' · ') : '';
+    const q = readQuizBest();
+    $('quizBest').textContent = q ? `Bestwert · ${q} von 10` : '';
   }
 
-  function openStart() {
-    $('mEyebrow').textContent = 'Blütenjagd';
-    $('mTitle').textContent = 'Wie lange willst du spielen?';
-    $('mText').innerHTML = 'Tippe eine Blüte an. Jede weitere Blüte <strong>derselben Art</strong> bringt einen Punkt mehr als die vorige. Triffst du eine andere Art, beginnt die Serie mit dieser Art neu. Ein Tipp auf den Asphalt beendet die Serie.';
-    $('mScale').hidden = false;
-    const b = $('mBest'); b.textContent = bestLine(); b.classList.remove('new');
-    $('mClose').textContent = 'Weiter zuschauen';
+  // Kopf des Menüs: Startansicht oder Ergebnis einer Runde
+  function openMenu(result) {
+    fillBests();
+    const text = $('mText'), best = $('mBest');
+    if (result) {
+      $('mEyebrow').textContent = result.eyebrow;
+      $('mTitle').textContent = result.title;
+      text.innerHTML = result.text; text.hidden = false;
+      best.textContent = result.best; best.hidden = !result.best; best.classList.toggle('new', !!result.isNew);
+    } else {
+      $('mEyebrow').textContent = 'Spielen';
+      $('mTitle').textContent = 'Was möchtest du spielen?';
+      text.hidden = true; best.hidden = true;
+    }
     modal.hidden = false;
+    modal.querySelector('.panel').scrollTop = 0;
     modal.querySelector('.choices button').focus();
   }
   function closeModal() { modal.hidden = true; playBtn.focus(); }
 
-  function startGame(sec) {
-    Object.assign(game, { on: true, sec, left: sec, lastReal: performance.now(), score: 0, combo: 0, type: null, bestCombo: 0, bestType: null, shownSec: -1 });
+  // Gemeinsamer Ein- und Ausstieg für Blütenjagd und Quiz
+  function enterPlay(label) {
     if (!green) toggleLight();
     lightBtn.disabled = true; rebloomBtn.disabled = true;
-    playBtn.textContent = 'Spiel beenden'; playBtn.classList.remove('primary');
+    playBtn.textContent = label; playBtn.classList.remove('primary');
     modal.hidden = true; hud.hidden = false;
     document.body.classList.add('playing');
-    $('timeStat').classList.remove('urgent');
-    renderHud();
-    // genug Passanten auf der Straße
     while (walkers.length < 18) walkers.push(newWalker(rnd(U * 0.5, W - U * 0.5), rnd(U * 1.6, H + U * 0.4)));
     updateCount();
+  }
+  function exitPlay() {
+    lightBtn.disabled = false; rebloomBtn.disabled = false;
+    playBtn.textContent = 'Spielen'; playBtn.classList.add('primary');
+    hud.hidden = true; hud.classList.remove('quiz');
+    document.body.classList.remove('playing');
+  }
+  function setHudLabels(a, b) {
+    $('timeStat').querySelector('.k').textContent = a;
+    $('score').previousElementSibling.textContent = b;
+  }
+
+  function startGame(sec) {
+    Object.assign(game, { on: true, sec, left: sec, lastReal: performance.now(), score: 0, combo: 0, type: null, bestCombo: 0, bestType: null, shownSec: -1 });
+    enterPlay('Spiel beenden');
+    setHudLabels('Zeit', 'Punkte');
+    $('timeStat').classList.remove('urgent');
+    renderHud();
   }
 
   function endGame(finished) {
     game.on = false;
-    lightBtn.disabled = false; rebloomBtn.disabled = false;
-    playBtn.textContent = 'Blütenjagd starten'; playBtn.classList.add('primary');
-    hud.hidden = true;
-    document.body.classList.remove('playing');
+    exitPlay();
     if (!finished) return;
     const prev = readBest(game.sec);
     const isNew = game.score > prev;
     if (isNew) writeBest(game.sec, game.score);
-    $('mEyebrow').textContent = `Blütenjagd · ${game.sec} Sekunden`;
-    $('mTitle').textContent = `${game.score} Punkte`;
-    $('mText').innerHTML = game.bestCombo
-      ? `Deine längste Serie: <strong>${game.bestCombo} × ${NAMES[game.bestType]}</strong>.`
-      : 'Keine einzige Blüte getroffen. Beim nächsten Mal klappt es.';
-    $('mScale').hidden = true;
-    const b = $('mBest');
-    b.textContent = isNew ? (prev ? `Neuer Bestwert! Vorher: ${prev}` : 'Dein erster Bestwert!') : `Bestwert für ${game.sec} Sekunden: ${prev}`;
-    b.classList.toggle('new', isNew);
-    $('mClose').textContent = 'Weiter zuschauen';
-    modal.hidden = false;
-    modal.querySelector('.choices button').focus();
+    openMenu({
+      eyebrow: `Blütenjagd · ${game.sec} Sekunden`,
+      title: `${game.score} Punkte`,
+      text: game.bestCombo
+        ? `Deine längste Serie: <strong>${game.bestCombo} × ${NAMES[game.bestType]}</strong>.`
+        : 'Keine einzige Blüte getroffen. Beim nächsten Mal klappt es.',
+      best: isNew ? (prev ? `Neuer Bestwert! Vorher: ${prev}` : 'Dein erster Bestwert!') : `Bestwert für ${game.sec} Sekunden: ${prev}`,
+      isNew
+    });
+  }
+
+  // ---------- Blüten-Quiz ----------
+  const ART = { pansy: 'ein', hibiscus: 'ein' }; // sonst „eine“
+  const withArt = key => `${ART[key] || 'eine'} ${NAMES[key]}`;
+  const quiz = { on: false, q: 0, total: 10, correct: 0, target: null, lock: 0, reveal: 0, misses: [], t0: 0 };
+
+  function startQuiz() {
+    Object.assign(quiz, { on: true, q: 0, correct: 0, target: null, lock: 0, reveal: 0, misses: [], t0: performance.now() });
+    enterPlay('Quiz beenden');
+    beeLeave(); // die Biene würde das Quiz verraten
+    if (pollen) endPollen();
+    hud.classList.add('quiz');
+    setHudLabels('Frage', 'Richtig');
+    $('timeStat').classList.remove('urgent');
+    nextQuestion();
+  }
+
+  function nextQuestion() {
+    if (quiz.q >= quiz.total) { endQuiz(true); return; }
+    quiz.q++;
+    // nur Arten fragen, die gerade wirklich zu sehen sind
+    const seen = [...new Set(onScreenWalkers().map(w => w.flower.type.key))];
+    const pool = seen.filter(k => k !== quiz.target);
+    quiz.target = pool.length ? pick(pool) : (seen[0] || pick(FLOWERS).key);
+    renderQuizHud();
+    bump($('combo'));
+  }
+
+  function renderQuizHud() {
+    $('time').textContent = `${quiz.q}/${quiz.total}`;
+    $('score').textContent = quiz.correct;
+    $('comboName').textContent = 'Finde';
+    $('combo').textContent = NAMES[quiz.target];
+  }
+
+  function quizTap(w, h) {
+    if (quiz.lock > 0) return;
+    const key = w.flower.type.key;
+    if (key === quiz.target) {
+      quiz.correct++;
+      floaters.push({ x: h.x, y: h.y - h.r, text: 'Richtig!', col: '#46d17a', size: 24, life: 0 });
+      burst(h.x, h.y, h.r, w.flower.pal, 14);
+      w.flower = newFlower(key); w.bloom = 0.15;
+      quiz.lock = 0.7;
+      bump($('score'));
+    } else {
+      quiz.misses.push({ want: quiz.target, got: key });
+      floaters.push({ x: h.x, y: h.y - h.r, text: `Das ist ${withArt(key)}`, col: '#ff8a80', size: 17, life: -0.6 });
+      quiz.lock = 2.4; quiz.reveal = 2.4;
+    }
+    renderQuizHud();
+  }
+
+  function tickQuiz(dt) {
+    if (quiz.lock <= 0) return;
+    quiz.lock -= dt; quiz.reveal = Math.max(0, quiz.reveal - dt);
+    if (quiz.lock <= 0) nextQuestion();
+  }
+
+  // Nach einem Fehler leuchten alle gesuchten Blüten auf
+  function drawReveal() {
+    if (!quiz.on || quiz.reveal <= 0) return;
+    const a = Math.min(1, quiz.reveal / 0.4);
+    ctx.save();
+    ctx.lineWidth = 3;
+    ctx.font = '500 12px "DM Mono", ui-monospace, monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const w of walkers) {
+      if (w.flower.type.key !== quiz.target) continue;
+      const h = headPos(w);
+      const r = h.r * (1.35 + 0.08 * Math.sin(t * 8));
+      ctx.strokeStyle = `rgba(70,209,122,${0.95 * a})`;
+      ctx.beginPath(); ctx.arc(h.x, h.y, r, 0, TAU); ctx.stroke();
+      const label = NAMES[quiz.target], tw = ctx.measureText(label).width + 16;
+      ctx.fillStyle = `rgba(70,209,122,${0.95 * a})`;
+      ctx.beginPath(); ctx.roundRect(h.x - tw / 2, h.y - r - 26, tw, 20, 10); ctx.fill();
+      ctx.fillStyle = `rgba(10,30,18,${a})`;
+      ctx.fillText(label, h.x, h.y - r - 15.5);
+    }
+    ctx.restore();
+  }
+
+  function endQuiz(finished) {
+    quiz.on = false;
+    exitPlay();
+    if (!finished) return;
+    const secs = (performance.now() - quiz.t0) / 1000;
+    const prev = readQuizBest();
+    const isNew = quiz.correct > prev;
+    if (isNew) writeQuizBest(quiz.correct);
+    let text;
+    if (!quiz.misses.length) text = `Alles richtig in ${fmt(secs)}. Du kennst die Blumen am Zebrastreifen.`;
+    else {
+      const items = quiz.misses.map(m => `<strong>${NAMES[m.want]}</strong> (getippt: ${NAMES[m.got]})`);
+      text = `Zeit: ${fmt(secs)}. Gesucht und verwechselt: ${items.join(', ')}.`;
+    }
+    openMenu({
+      eyebrow: 'Blüten-Quiz',
+      title: `${quiz.correct} von ${quiz.total} richtig`,
+      text,
+      best: isNew ? (prev ? `Neuer Bestwert! Vorher: ${prev} von 10` : 'Dein erster Bestwert!') : `Bestwert: ${prev} von 10`,
+      isNew
+    });
   }
 
   function renderHud() {
@@ -1053,7 +1210,7 @@ body.playing .top { justify-content: flex-end; }
       ctx.globalAlpha = a;
       ctx.font = `800 ${f.size}px "Bricolage Grotesque", system-ui, sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      const y = f.y - f.life * 46;
+      const y = f.y - Math.max(0, f.life) * 46;
       ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(15,17,17,0.85)'; ctx.lineJoin = 'round';
       ctx.strokeText(f.text, f.x, y);
       ctx.fillStyle = f.col; ctx.fillText(f.text, f.x, y);
@@ -1061,7 +1218,12 @@ body.playing .top { justify-content: flex-end; }
     }
   }
 
-  playBtn.addEventListener('click', () => { if (game.on) endGame(false); else openStart(); });
+  playBtn.addEventListener('click', () => {
+    if (game.on) endGame(false);
+    else if (quiz.on) endQuiz(false);
+    else openMenu(null);
+  });
+  $('quizStart').addEventListener('click', startQuiz);
   modal.querySelectorAll('.choices button').forEach(b => b.addEventListener('click', () => startGame(parseInt(b.dataset.sec, 10))));
   $('mClose').addEventListener('click', closeModal);
   modal.addEventListener('pointerdown', e => { if (e.target === modal) closeModal(); });
